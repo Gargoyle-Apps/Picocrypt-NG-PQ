@@ -34,7 +34,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-    "sync"
 
 	"github.com/Picocrypt/dialog"
 	"github.com/Picocrypt/giu"
