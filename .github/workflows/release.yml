@@ -60,6 +60,26 @@ jobs:
           name: ${{ env.OUT }}
           path: src/${{ env.OUT }}
 
+      - name: Prepare .app and DMG (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          unzip -q dist/macos/Picocrypt-NG.app.zip -d dist/macos
+          cp src/Picocrypt-NG dist/macos/Picocrypt-NG.app/Contents/MacOS/Picocrypt-NG
+          chmod +x dist/macos/Picocrypt-NG.app/Contents/MacOS/Picocrypt-NG
+          rm -rf dist/dmg
+          mkdir -p dist/dmg
+          cp -R dist/macos/Picocrypt-NG.app dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "Picocrypt NG" -srcfolder dist/dmg -fs HFS+ -format UDZO dist/Picocrypt-NG.dmg
+
+      - name: Upload DMG (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Picocrypt-NG.dmg
+          path: dist/Picocrypt-NG.dmg
+
   release:
     name: create release
     needs: build
@@ -77,6 +97,7 @@ jobs:
             dist/**/Picocrypt-NG.exe
             dist/**/Picocrypt-NG-macos.tar.gz
             dist/**/Picocrypt-NG-linux.tar.gz
+            dist/**/Picocrypt-NG.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

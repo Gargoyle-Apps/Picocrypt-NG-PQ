@@ -43,9 +43,9 @@ To download the latest, standalone, and portable executable for Windows, click <
 If your antivirus flags Picocrypt NG as a virus, please report it as a false positive to help everyone.
 
 ## macOS
-Download Picocrypt NG from the <a href="https://github.com/Picocrypt-NG/Picocrypt-NG-PQ/releases/latest">latest release</a> (<code>Picocrypt-NG-macos.tar.gz</code>), extract it, and place the binary where you prefer. You will need to manually trust the app if macOS prevents you from opening it:
-``` 
-xattr -d com.apple.quarantine /path/to/Picocrypt-NG
+Download Picocrypt NG from the <a href="https://github.com/Picocrypt-NG/Picocrypt-NG-PQ/releases/latest">latest release</a> as a <code>Picocrypt-NG.dmg</code> (recommended) or the <code>Picocrypt-NG-macos.tar.gz</code> tarball. For the tarball, extract it and place the binary where you prefer. If macOS prevents you from opening it, you may need to manually trust the app:
+```
+xattr -d com.apple.quarantine /Applications/Picocrypt-NG.app
 ```
 
 Note: this fork’s CI publishes a tarball; a DMG may be added later.
