@@ -6,6 +6,18 @@
 
 Picocrypt NG (new generation) is a very small (hence <i>Pico</i>), very simple, yet very secure encryption tool that you can use to protect your files. It's designed to be the <i>go-to</i> tool for file encryption, with a focus on security, simplicity, and reliability. Picocrypt NG uses the secure XChaCha20 cipher and the Argon2id key derivation function to provide a high level of security.
 
+<br/>
+
+### Post-Quantum (Optional)
+
+Picocrypt NG now supports an optional hybrid post-quantum mode using ML-KEM-768 (Kyber) via the open-source CIRCL library. When enabled during encryption, a post-quantum shared secret is derived using the recipient's ML-KEM-768 public key and is mixed into the symmetric key derivation. The volume header includes a small marker and the ML-KEM ciphertext so that decryption can decapsulate using the corresponding ML-KEM-768 private key.
+
+- **Enable on encrypt**: Check “Post-quantum (ML-KEM-768)” and select a ML-KEM-768 public key.
+- **Enable on decrypt**: Check “Post-quantum (ML-KEM-768)” and select the matching ML-KEM-768 private key.
+- **Compatibility**: If PQ isn’t enabled, volumes remain exactly as before; PQ is additive and optional.
+
+Note: Picocrypt NG does not distribute ML-KEM keys. You must manage ML-KEM-768 keypairs externally and provide the public key on encryption and the private key on decryption when opting into PQ mode.
+
 <br>
 <p align="center"><img align="center" src="/images/screenshot.png" width="318" alt="Picocrypt NG"></p>
 
@@ -102,7 +114,7 @@ No, it doesn't shred any files and just deletes them as your file manager would.
 
 **Is Picocrypt NG quantum-secure?**
 
-Yes, Picocrypt NG is secure against quantum computers. All of the cryptography used in Picocrypt NG works off of a private key, and private-key cryptography is considered to be resistant against all current and future developments, including quantum computers.
+Picocrypt NG provides an optional hybrid post-quantum mode based on ML-KEM-768 (Kyber). When enabled, a PQ shared secret is combined with the Argon2-derived key to protect against future large-scale quantum adversaries under the KEM hardness assumptions. If you do not enable PQ mode, Picocrypt NG continues to use strong classical symmetric cryptography (XChaCha20, Serpent in paranoid mode) which is not affected by Shor’s attack, but key establishment in hybrid mode further mitigates long-term harvest-now-decrypt-later risks.
 
 # Acknowledgements
 Thank you to the significant contributors on [Open Collective](https://opencollective.com/picocrypt) who helped secure the original Picocrypt project's audit:

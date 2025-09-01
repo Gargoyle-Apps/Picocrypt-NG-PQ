@@ -14,6 +14,7 @@ https://github.com/Picocrypt-NG/Picocrypt-NG
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/binary"
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/rand"
@@ -40,6 +41,7 @@ import (
 	"github.com/Picocrypt/infectious"
 	"github.com/Picocrypt/serpent"
 	"github.com/Picocrypt/zxcvbn-go"
+	"github.com/cloudflare/circl/kem/mlkem"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20"
@@ -108,6 +110,18 @@ var keyfileLabel = "None selected"
 var comments string
 var commentsLabel = "Comments:"
 var commentsDisabled bool
+
+// Post-Quantum options
+var pqEnabled bool
+var pqPubKeyPath string
+var pqPrivKeyPath string
+var pqPubKeyData []byte
+var pqPrivKeyData []byte
+var pqPubKeyLabel = "None selected"
+var pqPrivKeyLabel = "None selected"
+var pqRequired bool
+var pqMarkerOn = []byte("PQPQ1")
+var pqMarkerOff = []byte("PQPQ0")
 
 // Advanced options
 var paranoid bool
@@ -215,6 +229,25 @@ func onClickStartButton() {
 		mainStatusColor = RED
 		giu.Update()
 		return
+	}
+
+	// Validate PQ settings
+	if pqEnabled {
+		if mode != "decrypt" {
+			if len(pqPubKeyData) == 0 {
+				mainStatus = "Please select a PQ public key"
+				mainStatusColor = RED
+				giu.Update()
+				return
+			}
+		} else {
+			if len(pqPrivKeyData) == 0 {
+				mainStatus = "Please select a PQ private key"
+				mainStatusColor = RED
+				giu.Update()
+				return
+			}
+		}
 	}
 	tmp, err := strconv.Atoi(splitSize)
 	if split && (splitSize == "" || err != nil || tmp <= 0) {
@@ -661,6 +694,54 @@ func draw() {
 						),
 					).Build()
 
+					// PQ options (encryption)
+					giu.Row(
+						giu.Checkbox("Post-quantum (ML-KEM-768)", &pqEnabled),
+						giu.Tooltip("Derive a hybrid secret via ML-KEM-768 (Kyber)"),
+						giu.Dummy(-170, 0),
+						giu.Style().SetDisabled(!pqEnabled || mode == "decrypt").To(
+							giu.Button("PQ Public").Size(86/dpi, 0).OnClick(func() {
+								f := dialog.File().Title("Select ML-KEM-768 public key")
+								if len(onlyFiles) > 0 {
+									f.SetStartDir(filepath.Dir(onlyFiles[0]))
+								} else if len(onlyFolders) > 0 {
+									f.SetStartDir(filepath.Dir(onlyFolders[0]))
+								}
+
+								file, err := f.Open()
+								if file == "" || err != nil {
+									return
+								}
+								data, rerr := os.ReadFile(file)
+								if rerr != nil {
+									mainStatus = "Failed to read PQ public key"
+									mainStatusColor = RED
+									giu.Update()
+									return
+								}
+								// Validate format
+								if _, uerr := mlkem.Scheme768.UnmarshalBinaryPublicKey(data); uerr != nil {
+									mainStatus = "Invalid ML-KEM-768 public key"
+									mainStatusColor = RED
+									giu.Update()
+									return
+								}
+								pqPubKeyPath = file
+								pqPubKeyData = data
+								pqPubKeyLabel = filepath.Base(file)
+								mainStatus = "Ready"
+								mainStatusColor = WHITE
+								giu.Update()
+							}),
+							giu.Tooltip("Choose a ML-KEM-768 public key for hybrid encryption"),
+						),
+					).Build()
+					giu.Row(
+						giu.Style().SetDisabled(true).To(
+							giu.InputText(&pqPubKeyLabel).Size(giu.Auto),
+						),
+					).Build()
+
 					giu.Row(
 						giu.Checkbox("Reed-Solomon", &reedsolo),
 						giu.Tooltip("Prevent file corruption with erasure coding"),
@@ -701,6 +782,51 @@ func draw() {
 						giu.Dummy(-170, 0),
 						giu.Checkbox("Delete volume", &delete),
 						giu.Tooltip("Delete the volume after a successful decryption"),
+					).Build()
+
+					// PQ options (decryption)
+					giu.Row(
+						giu.Checkbox("Post-quantum (ML-KEM-768)", &pqEnabled),
+						giu.Tooltip("Enable if the volume was encrypted with ML-KEM-768"),
+						giu.Dummy(-170, 0),
+						giu.Style().SetDisabled(!pqEnabled || mode != "decrypt").To(
+							giu.Button("PQ Private").Size(86/dpi, 0).OnClick(func() {
+								f := dialog.File().Title("Select ML-KEM-768 private key")
+								if len(onlyFiles) > 0 {
+									f.SetStartDir(filepath.Dir(onlyFiles[0]))
+								}
+								file, err := f.Open()
+								if file == "" || err != nil {
+									return
+								}
+								data, rerr := os.ReadFile(file)
+								if rerr != nil {
+									mainStatus = "Failed to read PQ private key"
+									mainStatusColor = RED
+									giu.Update()
+									return
+								}
+								// Validate format
+								if _, uerr := mlkem.Scheme768.UnmarshalBinaryPrivateKey(data); uerr != nil {
+									mainStatus = "Invalid ML-KEM-768 private key"
+									mainStatusColor = RED
+									giu.Update()
+									return
+								}
+								pqPrivKeyPath = file
+								pqPrivKeyData = data
+								pqPrivKeyLabel = filepath.Base(file)
+								mainStatus = "Ready"
+								mainStatusColor = WHITE
+								giu.Update()
+							}),
+							giu.Tooltip("Choose a ML-KEM-768 private key for hybrid decryption"),
+						),
+					).Build()
+					giu.Row(
+						giu.Style().SetDisabled(true).To(
+							giu.InputText(&pqPrivKeyLabel).Size(giu.Auto),
+						),
 					).Build()
 
 					giu.Row(
@@ -1204,6 +1330,9 @@ func work() {
 	var tempZipInUse bool = false
 	// Whether keyfiles should be applied for this operation (based on header for decrypt)
 	var useKeyfiles bool
+	// PQ hybrid KEM values
+	var pqCT []byte
+	var pqSS []byte
 	func() { // enclose to keep out of parent scope
 		key, nonce := make([]byte, 32), make([]byte, 12)
 		if n, err := rand.Read(key); err != nil || n != 32 {
@@ -1546,7 +1675,7 @@ func work() {
 	progressInfo = ""
 	giu.Update()
 
-	// Subtract the header size from the total size if decrypting
+	// Subtract the header size from the total size if decrypting (dynamic)
 	stat, err := os.Stat(inputFile)
 	if err != nil {
 		resetUI()
@@ -1554,9 +1683,6 @@ func work() {
 		return
 	}
 	total := stat.Size()
-	if mode == "decrypt" {
-		total -= 789
-	}
 
 	// Open input file in read-only mode
 	fin, err := os.Open(inputFile)
@@ -1643,6 +1769,36 @@ func work() {
 			flags[4] = 1
 		}
 		_, errs[3] = fout.Write(rsEncode(rs5, flags))
+
+		// Optional PQ section
+		if pqEnabled {
+			// Try parsing provided public key
+			pub, perr := mlkem.Scheme768.UnmarshalBinaryPublicKey(pqPubKeyData)
+			if perr != nil {
+				fin.Close()
+				fout.Close()
+				if len(allFiles) > 1 || len(onlyFolders) > 0 || compress {
+					os.Remove(inputFile)
+				}
+				mainStatus = "Invalid ML-KEM-768 public key"
+				mainStatusColor = RED
+				return
+			}
+			ct, ss, cerr := mlkem.Scheme768.Encapsulate(pub, rand.Reader)
+			if cerr != nil {
+				panic(cerr)
+			}
+			pqCT = ct
+			pqSS = ss
+			// Write marker and ct length + ct
+			if _, err := fout.Write(pqMarkerOn); err != nil { panic(err) }
+			lenBuf := make([]byte, 2)
+			binary.BigEndian.PutUint16(lenBuf, uint16(len(ct)))
+			if _, err := fout.Write(lenBuf); err != nil { panic(err) }
+			if _, err := fout.Write(ct); err != nil { panic(err) }
+		} else {
+			if _, err := fout.Write(pqMarkerOff); err != nil { panic(err) }
+		}
 
 		// Fill values with Go's CSPRNG
 		if n, err := rand.Read(salt); err != nil || n != 16 {
@@ -1738,6 +1894,33 @@ func work() {
 		}
 		// For decryption, only consider keyfiles if header requires them
 		useKeyfiles = len(headerFlags) > 1 && headerFlags[1] == 1
+
+		// Optional PQ section (read immediately after flags)
+		pqHeaderMarker := make([]byte, 5)
+		if _, err := fin.Read(pqHeaderMarker); err != nil {
+			broken(fin, nil, "Failed to read PQ marker", true)
+			return
+		}
+		if bytes.Equal(pqHeaderMarker, pqMarkerOn) {
+			pqEnabled = true
+			lenBuf := make([]byte, 2)
+			if _, err := fin.Read(lenBuf); err != nil {
+				broken(fin, nil, "Failed to read PQ length", true)
+				return
+			}
+			ctLen := int(binary.BigEndian.Uint16(lenBuf))
+			pqCT = make([]byte, ctLen)
+			if n, err := fin.Read(pqCT); err != nil || n != ctLen {
+				broken(fin, nil, "Failed to read PQ ciphertext", true)
+				return
+			}
+			// Subtract PQ header bytes from total
+			total -= int64(7 + ctLen)
+		} else {
+			pqEnabled = false
+			// Subtract marker bytes
+			total -= 5
+		}
 
 		salt = make([]byte, 48)
 		fin.Read(salt)
@@ -1950,6 +2133,16 @@ func work() {
 		macHeader.Write(serpentIV)
 		macHeader.Write(nonce)
 		macHeader.Write(keyfileHash)
+		// Include PQ marker and ct in header MAC
+		if pqEnabled {
+			macHeader.Write(pqMarkerOn)
+			lenBuf := make([]byte, 2)
+			binary.BigEndian.PutUint16(lenBuf, uint16(len(pqCT)))
+			macHeader.Write(lenBuf)
+			macHeader.Write(pqCT)
+		} else {
+			macHeader.Write(pqMarkerOff)
+		}
 
 		keyHash = macHeader.Sum(nil)
 	} else {
@@ -2025,6 +2218,16 @@ func work() {
 			macHeader.Write(serpentIV)
 			macHeader.Write(nonce)
 			macHeader.Write(keyfileHash)
+			// Include PQ marker+ct in header MAC
+			if pqEnabled {
+				macHeader.Write(pqMarkerOn)
+				lenBuf := make([]byte, 2)
+				binary.BigEndian.PutUint16(lenBuf, uint16(len(pqCT)))
+				macHeader.Write(lenBuf)
+				macHeader.Write(pqCT)
+			} else {
+				macHeader.Write(pqMarkerOff)
+			}
 
 			keyHash = macHeader.Sum(nil)
 
@@ -2100,6 +2303,35 @@ func work() {
 	chacha, err := chacha20.NewUnauthenticatedCipher(key, nonce)
 	if err != nil {
 		panic(err)
+	}
+
+	// If PQ is enabled, combine the derived key with PQ shared secret before using KDF
+	if pqEnabled {
+		if mode == "encrypt" {
+			// pqSS already set during encapsulation
+		} else {
+			// Decapsulation requires private key
+			if len(pqPrivKeyData) == 0 {
+				broken(fin, nil, "PQ private key required", true)
+				return
+			}
+			priv, perr := mlkem.Scheme768.UnmarshalBinaryPrivateKey(pqPrivKeyData)
+			if perr != nil {
+				broken(fin, nil, "Invalid ML-KEM-768 private key", true)
+				return
+			}
+			ss, derr := mlkem.Scheme768.Decapsulate(priv, pqCT)
+			if derr != nil {
+				broken(fin, nil, "Failed to decapsulate PQ secret", true)
+				return
+			}
+			pqSS = ss
+		}
+		// Mix pqSS into key via SHA3-256(key || pqSS)
+		tmp := sha3.New256()
+		tmp.Write(key)
+		tmp.Write(pqSS)
+		key = tmp.Sum(nil)
 	}
 
 	// Use the single HKDF stream to derive payload MAC subkey and Serpent key
@@ -2341,7 +2573,14 @@ func work() {
 		giu.Update()
 
 		// Seek back to header and write important values
-		if _, err := fout.Seek(int64(309+len(comments)*3), 0); err != nil {
+		// Header layout up to keyfileHash is fixed-size regardless of PQ presence
+		// 15(version)+15(comlen)+3*len(comments)+15(flags)+48(salt)+96(hkdfSalt)+48(serpentIV)+72(nonce)+192(keyHash)+96(keyfileHash) = 384 + 3*len(comments)
+		headerBase := int64(384 + len(comments)*3)
+		if pqEnabled {
+			// plus 5(marker)+2(ctLen)+ctLen
+			headerBase += int64(7 + len(pqCT))
+		}
+		if _, err := fout.Seek(headerBase, 0); err != nil {
 			panic(err)
 		}
 		if _, err := fout.Write(rsEncode(rs64, keyHash)); err != nil {
