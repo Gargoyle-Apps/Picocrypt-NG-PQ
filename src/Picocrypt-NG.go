@@ -41,6 +41,7 @@ import (
 	"github.com/Picocrypt/infectious"
 	"github.com/Picocrypt/serpent"
 	"github.com/Picocrypt/zxcvbn-go"
+	"github.com/cloudflare/circl/kem"
 	"github.com/cloudflare/circl/kem/mlkem"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/blake2b"
@@ -1785,7 +1786,8 @@ func work() {
 				mainStatusColor = RED
 				return
 			}
-			ct, ss, cerr := mlkem.Scheme768.Encapsulate(pub)
+			scheme := kem.ByName(mlkem.SchemeNameMLKEM768)
+			ct, ss, cerr := scheme.Encapsulate(pub)
 			if cerr != nil {
 				panic(cerr)
 			}
@@ -2321,7 +2323,8 @@ func work() {
 				broken(fin, nil, "Invalid ML-KEM-768 private key", true)
 				return
 			}
-			ss, derr := mlkem.Scheme768.Decapsulate(priv, pqCT)
+			scheme := kem.ByName(mlkem.SchemeNameMLKEM768)
+			ss, derr := scheme.Decapsulate(priv, pqCT)
 			if derr != nil {
 				broken(fin, nil, "Failed to decapsulate PQ secret", true)
 				return
