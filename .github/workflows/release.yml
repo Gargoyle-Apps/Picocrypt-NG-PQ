@@ -64,14 +64,14 @@ jobs:
         run: |
           cd src
           if [ "${{ runner.os }}" = "Windows" ]; then
-            go build -ldflags="-s -w -H=windowsgui" -o Picocrypt-NG.exe Picocrypt-NG.go
+            go build -ldflags="-s -w -H=windowsgui" -o Picocrypt-NG.exe
             echo "OUT=Picocrypt-NG.exe" >> $GITHUB_ENV
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            go build -ldflags="-s -w" -o Picocrypt-NG Picocrypt-NG.go
+            go build -ldflags="-s -w" -o Picocrypt-NG
             tar -czf Picocrypt-NG-macos.tar.gz Picocrypt-NG
             echo "OUT=Picocrypt-NG-macos.tar.gz" >> $GITHUB_ENV
           else
-            go build -ldflags="-s -w" -o Picocrypt-NG Picocrypt-NG.go
+            go build -ldflags="-s -w" -o Picocrypt-NG
             tar -czf Picocrypt-NG-linux.tar.gz Picocrypt-NG
             echo "OUT=Picocrypt-NG-linux.tar.gz" >> $GITHUB_ENV
           fi
