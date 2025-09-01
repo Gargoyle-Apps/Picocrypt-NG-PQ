@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+    "sync"
 
 	"github.com/Picocrypt/dialog"
 	"github.com/Picocrypt/giu"
@@ -41,7 +42,8 @@ import (
 	"github.com/Picocrypt/infectious"
 	"github.com/Picocrypt/serpent"
 	"github.com/Picocrypt/zxcvbn-go"
-	"github.com/cloudflare/circl/kem/kyber"
+	"github.com/cloudflare/circl/kem"
+	_ "github.com/cloudflare/circl/kem/mlkem"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20"
@@ -122,6 +124,15 @@ var pqPrivKeyLabel = "None selected"
 var pqRequired bool
 var pqMarkerOn = []byte("PQPQ1")
 var pqMarkerOff = []byte("PQPQ0")
+var pqScheme kem.Scheme
+var pqOnce sync.Once
+
+func getPQScheme() kem.Scheme {
+    pqOnce.Do(func() {
+        pqScheme = kem.ByName("ML-KEM-768")
+    })
+    return pqScheme
+}
 
 // Advanced options
 var paranoid bool
@@ -1773,7 +1784,8 @@ func work() {
 		// Optional PQ section
 		if pqEnabled {
 			// Try parsing provided public key
-			pub, perr := kyber.Scheme768.UnmarshalBinaryPublicKey(pqPubKeyData)
+			scheme := getPQScheme()
+			pub, perr := scheme.UnmarshalBinaryPublicKey(pqPubKeyData)
 			if perr != nil {
 				fin.Close()
 				fout.Close()
@@ -1784,7 +1796,7 @@ func work() {
 				mainStatusColor = RED
 				return
 			}
-			ct, ss, cerr := kyber.Scheme768.Encapsulate(pub, rand.Reader)
+			ct, ss, cerr := scheme.Encapsulate(pub, rand.Reader)
 			if cerr != nil {
 				panic(cerr)
 			}
@@ -2315,12 +2327,12 @@ func work() {
 				broken(fin, nil, "PQ private key required", true)
 				return
 			}
-			priv, perr := kyber.Scheme768.UnmarshalBinaryPrivateKey(pqPrivKeyData)
+			priv, perr := getPQScheme().UnmarshalBinaryPrivateKey(pqPrivKeyData)
 			if perr != nil {
 				broken(fin, nil, "Invalid ML-KEM-768 private key", true)
 				return
 			}
-			ss, derr := kyber.Scheme768.Decapsulate(priv, pqCT)
+			ss, derr := getPQScheme().Decapsulate(priv, pqCT)
 			if derr != nil {
 				broken(fin, nil, "Failed to decapsulate PQ secret", true)
 				return

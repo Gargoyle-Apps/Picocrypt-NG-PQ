@@ -36,6 +36,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc xorg-dev libgtk-3-dev libgl1-mesa-dev libglu1-mesa
 
+      - name: Install deps (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y mingw
+          echo "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
       - name: Tidy modules
         shell: bash
         run: |
@@ -45,6 +51,7 @@ jobs:
       - name: Build
         env:
           CGO_ENABLED: 1
+          CC: gcc
         shell: bash
         run: |
           cd src
