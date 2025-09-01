@@ -41,7 +41,7 @@ import (
 	"github.com/Picocrypt/infectious"
 	"github.com/Picocrypt/serpent"
 	"github.com/Picocrypt/zxcvbn-go"
-	"github.com/cloudflare/circl/kem/mlkem"
+	"github.com/cloudflare/circl/kem/kyber"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20"
@@ -708,7 +708,7 @@ func draw() {
 									f.SetStartDir(filepath.Dir(onlyFolders[0]))
 								}
 
-								file, err := f.Open()
+								file, err := f.Load()
 								if file == "" || err != nil {
 									return
 								}
@@ -720,7 +720,7 @@ func draw() {
 									return
 								}
 								// Validate format
-								if _, uerr := mlkem.Scheme768.UnmarshalBinaryPublicKey(data); uerr != nil {
+								if _, uerr := kyber.Scheme768.UnmarshalBinaryPublicKey(data); uerr != nil {
 									mainStatus = "Invalid ML-KEM-768 public key"
 									mainStatusColor = RED
 									giu.Update()
@@ -795,7 +795,7 @@ func draw() {
 								if len(onlyFiles) > 0 {
 									f.SetStartDir(filepath.Dir(onlyFiles[0]))
 								}
-								file, err := f.Open()
+								file, err := f.Load()
 								if file == "" || err != nil {
 									return
 								}
@@ -807,7 +807,7 @@ func draw() {
 									return
 								}
 								// Validate format
-								if _, uerr := mlkem.Scheme768.UnmarshalBinaryPrivateKey(data); uerr != nil {
+								if _, uerr := kyber.Scheme768.UnmarshalBinaryPrivateKey(data); uerr != nil {
 									mainStatus = "Invalid ML-KEM-768 private key"
 									mainStatusColor = RED
 									giu.Update()
@@ -1773,7 +1773,7 @@ func work() {
 		// Optional PQ section
 		if pqEnabled {
 			// Try parsing provided public key
-			pub, perr := mlkem.Scheme768.UnmarshalBinaryPublicKey(pqPubKeyData)
+			pub, perr := kyber.Scheme768.UnmarshalBinaryPublicKey(pqPubKeyData)
 			if perr != nil {
 				fin.Close()
 				fout.Close()
@@ -1784,7 +1784,7 @@ func work() {
 				mainStatusColor = RED
 				return
 			}
-			ct, ss, cerr := mlkem.Scheme768.Encapsulate(pub, rand.Reader)
+			ct, ss, cerr := kyber.Scheme768.Encapsulate(pub, rand.Reader)
 			if cerr != nil {
 				panic(cerr)
 			}
@@ -2315,12 +2315,12 @@ func work() {
 				broken(fin, nil, "PQ private key required", true)
 				return
 			}
-			priv, perr := mlkem.Scheme768.UnmarshalBinaryPrivateKey(pqPrivKeyData)
+			priv, perr := kyber.Scheme768.UnmarshalBinaryPrivateKey(pqPrivKeyData)
 			if perr != nil {
 				broken(fin, nil, "Invalid ML-KEM-768 private key", true)
 				return
 			}
-			ss, derr := mlkem.Scheme768.Decapsulate(priv, pqCT)
+			ss, derr := kyber.Scheme768.Decapsulate(priv, pqCT)
 			if derr != nil {
 				broken(fin, nil, "Failed to decapsulate PQ secret", true)
 				return
