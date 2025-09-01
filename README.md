@@ -38,21 +38,21 @@ When referencing Picocrypt NG, please always include the "NG" suffix to ensure d
 Make sure to only download Picocrypt NG from this repository to ensure that you get the authentic and backdoor-free Picocrypt NG. When sharing Picocrypt NG with others, be sure to link to this repository to prevent any confusion.
 
 ## Windows
-To download the latest, standalone, and portable executable for Windows, click <a href="https://github.com/Picocrypt-NG/Picocrypt-NG/releases/latest/download/Picocrypt-NG.exe">here</a>.
+To download the latest, standalone, and portable executable for Windows, click <a href="https://github.com/Picocrypt-NG/Picocrypt-NG-PQ/releases/latest">here</a> and grab <code>Picocrypt-NG.exe</code>.
 
 If your antivirus flags Picocrypt NG as a virus, please report it as a false positive to help everyone.
 
 ## macOS
-Download Picocrypt NG <a href="https://github.com/Picocrypt-NG/Picocrypt-NG/releases/latest/download/Picocrypt-NG.dmg">here</a>, open the container, and drag Picocrypt NG to your Applications. You will need to manually trust the app from a terminal if macOS prevents you from opening it:
-```
-xattr -d com.apple.quarantine /Applications/Picocrypt-NG.app
+Download Picocrypt NG from the <a href="https://github.com/Picocrypt-NG/Picocrypt-NG-PQ/releases/latest">latest release</a> (<code>Picocrypt-NG-macos.tar.gz</code>), extract it, and place the binary where you prefer. You will need to manually trust the app if macOS prevents you from opening it:
+``` 
+xattr -d com.apple.quarantine /path/to/Picocrypt-NG
 ```
 
-Note: the macOS app is built for Apple silicon only. If you're still on Intel, you can build from source.
+Note: this fork’s CI publishes a tarball; a DMG may be added later.
 
 ## Linux
-Download the raw binary <a href="https://github.com/Picocrypt-NG/Picocrypt-NG/releases/latest/download/Picocrypt-NG">here</a> (you may need the packages below). Alternatively, try the <a href="https://github.com/Picocrypt-NG/Picocrypt-NG/releases/latest/download/Picocrypt-NG.deb">.deb</a> or <a href="https://flathub.org/apps/io.github.picocrypt-ng.Picocrypt-NG">Flatpak</a>.
-```
+Download the raw binary tarball from the <a href="https://github.com/Picocrypt-NG/Picocrypt-NG-PQ/releases/latest">latest release</a> (<code>Picocrypt-NG-linux.tar.gz</code>), extract it, and run the binary (you may need the packages below). Alternatively, use the packaging files under <code>dist/</code> to build Flatpak/Snap locally.
+``` 
 sudo apt install -y libc6 libgcc-s1 libgl1 libgtk-3-0 libstdc++6 libx11-6
 ```
 

@@ -1,0 +1,83 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Install deps (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install glfw glew
+
+      - name: Install deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc xorg-dev libgtk-3-dev libgl1-mesa-dev libglu1-mesa
+
+      - name: Build
+        env:
+          CGO_ENABLED: 1
+        shell: bash
+        run: |
+          cd src
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            go build -ldflags="-s -w -H=windowsgui" -o Picocrypt-NG.exe Picocrypt-NG.go
+            echo "OUT=Picocrypt-NG.exe" >> $GITHUB_ENV
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            go build -ldflags="-s -w" -o Picocrypt-NG Picocrypt-NG.go
+            tar -czf Picocrypt-NG-macos.tar.gz Picocrypt-NG
+            echo "OUT=Picocrypt-NG-macos.tar.gz" >> $GITHUB_ENV
+          else
+            go build -ldflags="-s -w" -o Picocrypt-NG Picocrypt-NG.go
+            tar -czf Picocrypt-NG-linux.tar.gz Picocrypt-NG
+            echo "OUT=Picocrypt-NG-linux.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.OUT }}
+          path: src/${{ env.OUT }}
+
+  release:
+    name: create release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/Picocrypt-NG.exe
+            dist/**/Picocrypt-NG-macos.tar.gz
+            dist/**/Picocrypt-NG-linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
