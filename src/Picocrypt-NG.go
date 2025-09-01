@@ -41,8 +41,6 @@ import (
 	"github.com/Picocrypt/infectious"
 	"github.com/Picocrypt/serpent"
 	"github.com/Picocrypt/zxcvbn-go"
-	"github.com/cloudflare/circl/kem"
-	"github.com/cloudflare/circl/kem/mlkem"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/chacha20"

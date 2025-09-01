@@ -40,13 +40,21 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco install -y mingw
-          echo "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Tidy modules
         shell: bash
         run: |
           cd src
           go mod tidy
+
+      - name: Probe circl API
+        shell: bash
+        run: |
+          cd src
+          go list -m -json github.com/cloudflare/circl | sed -n '1,120p'
+          echo "-- circl kem packages --"
+          go list github.com/cloudflare/circl/kem/... || true
 
       - name: Build
         env:
@@ -111,9 +119,7 @@ jobs:
         with:
           files: |
             dist/**/Picocrypt-NG.exe
-            dist/**/Picocrypt-NG-macos.tar.gz
             dist/**/Picocrypt-NG-linux.tar.gz
-            dist/**/Picocrypt-NG.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
