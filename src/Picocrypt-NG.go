@@ -720,7 +720,7 @@ func draw() {
 									return
 								}
 								// Validate format
-								if _, uerr := mlkem.Scheme768.UnmarshalBinaryPublicKey(data); uerr != nil {
+								if err := validatePQPublicKey(data); err != nil {
 									mainStatus = "Invalid ML-KEM-768 public key"
 									mainStatusColor = RED
 									giu.Update()
@@ -807,7 +807,7 @@ func draw() {
 									return
 								}
 								// Validate format
-								if _, uerr := mlkem.Scheme768.UnmarshalBinaryPrivateKey(data); uerr != nil {
+								if err := validatePQPrivateKey(data); err != nil {
 									mainStatus = "Invalid ML-KEM-768 private key"
 									mainStatusColor = RED
 									giu.Update()
@@ -1772,9 +1772,8 @@ func work() {
 
 		// Optional PQ section
 		if pqEnabled {
-			// Try parsing provided public key
-			pub, perr := mlkem.Scheme768.UnmarshalBinaryPublicKey(pqPubKeyData)
-			if perr != nil {
+			ct, ss, cerr := encapsulatePQ(pqPubKeyData)
+			if cerr != nil {
 				fin.Close()
 				fout.Close()
 				if len(allFiles) > 1 || len(onlyFolders) > 0 || compress {
@@ -1783,11 +1782,6 @@ func work() {
 				mainStatus = "Invalid ML-KEM-768 public key"
 				mainStatusColor = RED
 				return
-			}
-			scheme := kem.ByName(mlkem.SchemeNameMLKEM768)
-			ct, ss, cerr := scheme.Encapsulate(pub)
-			if cerr != nil {
-				panic(cerr)
 			}
 			pqCT = ct
 			pqSS = ss
@@ -2316,13 +2310,7 @@ func work() {
 				broken(fin, nil, "PQ private key required", true)
 				return
 			}
-			priv, perr := mlkem.Scheme768.UnmarshalBinaryPrivateKey(pqPrivKeyData)
-			if perr != nil {
-				broken(fin, nil, "Invalid ML-KEM-768 private key", true)
-				return
-			}
-			scheme := kem.ByName(mlkem.SchemeNameMLKEM768)
-			ss, derr := scheme.Decapsulate(priv, pqCT)
+			ss, derr := decapsulatePQ(pqPrivKeyData, pqCT)
 			if derr != nil {
 				broken(fin, nil, "Failed to decapsulate PQ secret", true)
 				return
